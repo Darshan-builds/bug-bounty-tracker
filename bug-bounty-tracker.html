@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug Bounty Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --purple: #7c5cbf; --pink: #e879c5; --blue: #6fa3ef;
+  --bg: #f4f5fa; --white: #fff; --text: #1a1a2e; --muted: #8a8fa8; --border: #e8eaf2;
+  --green: #22c55e; --orange: #f59e0b; --red: #ef4444; --card-r: 16px;
+  --sidebar-w: 232px; --right-w: 255px;
+}
+body { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar { width: var(--sidebar-w); background: var(--white); display: flex; flex-direction: column; padding: 18px 12px; gap: 2px; border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+.brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--purple), var(--pink)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.brand-name { font-weight: 800; font-size: 15px; line-height: 1.1; }
+.brand-sub { font-size: 11px; color: var(--muted); }
+.target-box { background: #f5f0ff; border: 1px solid #ddd0f8; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; cursor: pointer; transition: background 0.15s; }
+.target-box:hover { background: #ece4ff; }
+.target-label { font-size: 10px; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
+.target-domain { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.target-domain.empty { color: var(--muted); font-weight: 400; font-style: italic; }
+.nav-sec { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 10px 4px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; cursor: pointer; transition: all 0.15s; font-size: 14px; font-weight: 500; color: #555; }
+.nav-item:hover { background: #f5f0ff; color: var(--purple); }
+.nav-item.active { background: var(--purple); color: white; font-weight: 700; }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: var(--pink); color: white; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px; min-width: 20px; text-align: center; }
+.nav-item.active .nav-badge { background: rgba(255,255,255,0.28); }
+.nav-div { height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-bottom { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
+.nav-item.danger:hover { background: #fff0f0; color: var(--red); }
+.nav-item.danger { color: var(--red); }
+
+/* MAIN */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 22px; display: flex; align-items: center; gap: 10px; height: 56px; flex-shrink: 0; }
+.topbar-tabs { display: flex; }
+.topbar-tab { padding: 0 16px; height: 56px; display: flex; align-items: center; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+.topbar-tab.active { color: var(--text); border-bottom-color: var(--purple); font-weight: 700; }
+.topbar-tab:hover { color: var(--text); }
+.tab-badge { background: var(--bg); color: var(--muted); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-left: 5px; }
+.topbar-tab.active .tab-badge { background: #f0ebff; color: var(--purple); }
+.topbar-search { margin-left: auto; display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 14px; width: 210px; transition: border-color 0.15s; }
+.topbar-search:focus-within { border-color: var(--purple); }
+.topbar-search input { border: none; background: transparent; outline: none; font-family: inherit; font-size: 13px; color: var(--text); width: 100%; }
+.topbar-search input::placeholder { color: var(--muted); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.save-flash { font-size: 11px; font-weight: 700; color: var(--green); opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
+.topbar-btn { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bg); cursor: pointer; font-size: 15px; border: 1px solid var(--border); color: var(--muted); transition: all 0.15s; }
+.topbar-btn:hover { background: #f0ebff; color: var(--purple); }
+
+/* LAYOUT */
+.content { display: flex; flex: 1; overflow: hidden; }
+.main-scroll { flex: 1; overflow-y: auto; padding: 20px 18px 20px 22px; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.right-panel { width: var(--right-w); padding: 20px 14px 20px 2px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; }
+
+/* VIEWS */
+.view { display: none; flex-direction: column; gap: 16px; }
+.view.active { display: flex; }
+
+/* Checklist views fill remaining height */
+#view-quick, #view-p1, #view-p2, #view-advanced { flex: 1; min-height: 0; }
+#view-quick > .vcard, #view-p1 > .vcard, #view-p2 > .vcard, #view-advanced > .vcard { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#view-quick .vlist, #view-p1 .vlist, #view-p2 .vlist, #view-advanced .vlist { flex: 1; max-height: none !important; }
+
+/* Dashboard fills remaining height — bottom two-col cards stretch */
+#view-dashboard { flex: 1; min-height: 0; }
+#view-dashboard > .two-col { flex: 1; min-height: 0; }
+#view-dashboard > .two-col > .vcard { display: flex; flex-direction: column; min-height: 0; }
+#view-dashboard > .two-col > .vcard .vlist { flex: 1; max-height: none !important; }
+
+/* HERO */
+.hero { border-radius: var(--card-r); background: linear-gradient(135deg, #5a3fa0 0%, #8b5cf6 40%, #ec4899 80%, #f97316 100%); padding: 22px 26px; display: flex; align-items: flex-end; justify-content: space-between; min-height: 114px; position: relative; overflow: hidden; color: white; }
+.hero::before { content: ''; position: absolute; top: -30px; right: -30px; width: 170px; height: 170px; background: rgba(255,255,255,0.07); border-radius: 50%; }
+.hero::after { content: ''; position: absolute; bottom: -40px; left: 35%; width: 110px; height: 110px; background: rgba(255,255,255,0.05); border-radius: 50%; }
+.hero-left { z-index: 1; }
+.hero-title { font-size: 21px; font-weight: 800; letter-spacing: -0.3px; }
+.hero-sub { font-size: 13px; opacity: 0.8; margin-top: 3px; }
+.hero-badge { background: rgba(255,255,255,0.18); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.3); padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: 700; z-index: 1; }
+
+/* STATS */
+.stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.stat-card { background: var(--white); border-radius: var(--card-r); padding: 16px 18px; display: flex; flex-direction: column; gap: 5px; border: 1px solid var(--border); }
+.stat-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 28px; font-weight: 800; line-height: 1; }
+.c-blue { color: var(--blue); } .c-pink { color: var(--pink); } .c-purple { color: var(--purple); }
+
+/* PROGRESS */
+.prog-card { background: var(--white); border-radius: var(--card-r); padding: 18px 22px; border: 1px solid var(--border); }
+.prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.prog-title { font-size: 15px; font-weight: 700; }
+.prog-pct { font-size: 15px; font-weight: 700; color: var(--purple); }
+.prog-track { height: 10px; background: var(--bg); border-radius: 20px; overflow: hidden; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--pink)); border-radius: 20px; transition: width 0.5s ease; }
+.prog-sub { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* VULN CARDS */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.vcard { background: var(--white); border-radius: var(--card-r); border: 1px solid var(--border); overflow: hidden; }
+.vcard-head { padding: 13px 18px 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.vcard-title { font-size: 14px; font-weight: 700; }
+.vcard-count { background: #f0ebff; color: var(--purple); font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+.vlist { overflow-y: auto; }
+.vgroup { border-bottom: 1px solid var(--border); }
+.vgroup:last-child { border-bottom: none; }
+.vgroup-label { padding: 7px 18px 4px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; background: #fafbff; }
+.vitem { display: flex; align-items: center; gap: 10px; padding: 8px 18px; cursor: pointer; transition: background 0.1s; user-select: none; }
+.vitem:hover { background: #f8f0ff; }
+.vitem.done .vname { text-decoration: line-through; color: var(--muted); }
+.vcb { width: 16px; height: 16px; border-radius: 4px; border: 2px solid var(--border); background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; font-size: 10px; color: white; font-weight: 700; }
+.vitem.done .vcb { background: var(--purple); border-color: var(--purple); }
+.vname { font-size: 13px; font-weight: 500; flex: 1; }
+.pdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.pc { background: var(--red); } .ph { background: var(--orange); } .pm { background: var(--blue); } .pl { background: #c4c4c4; }
+
+/* RIGHT PANEL */
+.rp-card { background: var(--white); border-radius: var(--card-r); border: 1px solid var(--border); padding: 14px 16px; }
+.rp-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.pri-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.pri-lbl { font-size: 12px; font-weight: 500; flex: 1; white-space: nowrap; }
+.pri-track { flex: 2; height: 6px; background: var(--bg); border-radius: 10px; overflow: hidden; }
+.pri-fill { height: 100%; border-radius: 10px; transition: width 0.5s; }
+.pri-n { font-size: 11px; font-weight: 700; color: var(--muted); min-width: 24px; text-align: right; }
+.wf-step { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.wf-step:last-child { border-bottom: none; }
+.wf-num { width: 22px; height: 22px; border-radius: 50%; background: var(--bg); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; }
+.wf-num.done { background: var(--purple); color: white; }
+.wf-num.curr { background: var(--pink); color: white; }
+.wf-lbl { font-size: 12px; font-weight: 500; flex: 1; }
+.wf-tag { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.wf-tag.done { background: #e8f5e9; color: var(--green); }
+.wf-tag.curr { background: #fff0f9; color: var(--pink); }
+.act-item { display: flex; align-items: center; gap: 9px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.act-item:last-child { border-bottom: none; }
+.act-dot { width: 26px; height: 26px; border-radius: 50%; background: #f0ebff; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+.act-name { font-size: 12px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.empty-msg { font-size: 12px; color: var(--muted); text-align: center; padding: 14px 0; }
+
+/* WORKFLOW FULL */
+.wf-full-step { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--border); }
+.wf-full-step:last-child { border-bottom: none; }
+.wf-full-num { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; background: var(--bg); color: var(--muted); border: 2px solid var(--border); }
+.wf-full-num.done { background: var(--purple); color: white; border-color: var(--purple); }
+.wf-full-num.curr { background: var(--pink); color: white; border-color: var(--pink); }
+.wf-full-body { flex: 1; }
+.wf-full-title { font-size: 14px; font-weight: 700; }
+.wf-full-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.wf-full-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+.wf-full-badge.done { background: #e8f5e9; color: var(--green); }
+.wf-full-badge.curr { background: #fff0f9; color: var(--pink); }
+.wf-full-badge.pend { background: var(--bg); color: var(--muted); }
+.wf-action-row { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+
+/* TARGET INFO */
+.ti-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ti-card { background: var(--white); border-radius: var(--card-r); border: 1px solid var(--border); padding: 18px 20px; }
+.ti-card.full { grid-column: 1/-1; }
+.ti-head { font-size: 14px; font-weight: 700; margin-bottom: 14px; }
+.ti-field { margin-bottom: 13px; }
+.ti-field:last-child { margin-bottom: 0; }
+.ti-lbl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+.ti-input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 13px; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s; }
+.ti-input:focus { border-color: var(--purple); background: white; }
+.ti-input.mono { font-family: 'Courier New', monospace; font-size: 12px; }
+textarea.ti-input { resize: vertical; min-height: 80px; line-height: 1.5; }
+.platform-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.plat-btn { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 2px solid var(--border); cursor: pointer; transition: all 0.15s; background: white; font-family: inherit; }
+.plat-btn.sel { border-color: var(--purple); background: #f0ebff; color: var(--purple); }
+.status-row { display: flex; gap: 7px; margin-top: 4px; }
+.status-btn { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 2px solid var(--border); cursor: pointer; transition: all 0.15s; background: white; color: var(--muted); font-family: inherit; }
+.status-btn.sel-a { border-color: var(--green); background: #e8f5e9; color: var(--green); }
+.status-btn.sel-p { border-color: var(--orange); background: #fff8e1; color: var(--orange); }
+.status-btn.sel-d { border-color: var(--blue); background: #e8f0ff; color: var(--blue); }
+.scope-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; margin-bottom: 5px; font-size: 12px; font-family: 'Courier New', monospace; }
+.scope-in { background: #e8f5e9; }
+.scope-out { background: #fff0f0; }
+.scope-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.scope-in .scope-dot { background: var(--green); }
+.scope-out .scope-dot { background: var(--red); }
+.scope-del { margin-left: auto; color: var(--muted); cursor: pointer; font-size: 16px; opacity: 0.5; transition: opacity 0.15s; line-height: 1; }
+.scope-del:hover { opacity: 1; color: var(--red); }
+.scope-add-row { display: flex; gap: 7px; margin-top: 6px; }
+.scope-add-row .ti-input { flex: 1; }
+.scope-add-btn { background: var(--purple); color: white; border: none; padding: 0 14px; border-radius: 10px; font-size: 20px; cursor: pointer; flex-shrink: 0; line-height: 1; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.tag { background: #f0ebff; color: var(--purple); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 5px; }
+.tag-x { cursor: pointer; opacity: 0.6; font-size: 13px; }
+.tag-x:hover { opacity: 1; }
+.add-tag-btn { background: var(--bg); border: 1.5px dashed var(--border); color: var(--muted); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; cursor: pointer; transition: all 0.15s; }
+.add-tag-btn:hover { border-color: var(--purple); color: var(--purple); }
+.save-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.save-btn { background: linear-gradient(135deg, var(--purple), var(--pink)); color: white; border: none; padding: 10px 24px; border-radius: 20px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.15s; }
+.save-btn:hover { opacity: 0.88; }
+.saved-ok { background: #e8f5e9; color: var(--green); font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 20px; display: none; align-items: center; gap: 4px; }
+.saved-ok.show { display: inline-flex; }
+
+/* REPORTS */
+.rpt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.rpt-card { background: var(--white); border-radius: var(--card-r); border: 1px solid var(--border); padding: 18px 20px; }
+.rpt-card.full { grid-column: 1/-1; }
+.rpt-head { font-size: 14px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+.donut-wrap { display: flex; align-items: center; gap: 20px; }
+.donut-legend { display: flex; flex-direction: column; gap: 9px; }
+.dl-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.dl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dl-val { font-weight: 700; margin-left: auto; padding-left: 16px; }
+.rbar-row { margin-bottom: 11px; }
+.rbar-row:last-child { margin-bottom: 0; }
+.rbar-hd { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.rbar-name { font-size: 13px; font-weight: 600; }
+.rbar-pct { font-size: 12px; font-weight: 700; color: var(--muted); }
+.rbar-track { height: 8px; background: var(--bg); border-radius: 10px; overflow: hidden; }
+.rbar-fill { height: 100%; border-radius: 10px; transition: width 0.5s; }
+.rpt-table { width: 100%; border-collapse: collapse; }
+.rpt-table th { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 0 10px 8px; text-align: left; }
+.rpt-table td { padding: 8px 10px; font-size: 13px; border-top: 1px solid var(--border); }
+.rpt-table tr:hover td { background: #fafbff; }
+.chip { display: inline-flex; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.chip-done { background: #e8f5e9; color: var(--green); }
+.chip-crit { background: #fff0f0; color: var(--red); }
+.chip-high { background: #fff8e1; color: var(--orange); }
+.export-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.exp-btn { display: flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 20px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border: 2px solid var(--border); background: white; color: var(--text); transition: all 0.15s; }
+.exp-btn:hover { border-color: var(--purple); color: var(--purple); background: #f8f0ff; }
+.exp-btn.primary { background: linear-gradient(135deg, var(--purple), var(--pink)); color: white; border: none; }
+.exp-btn.primary:hover { opacity: 0.88; }
+.big-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+.big-stat { text-align: center; padding: 14px; background: var(--bg); border-radius: 12px; }
+.big-num { font-size: 30px; font-weight: 800; line-height: 1; }
+.big-lbl { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.exp-confirm { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 10px; display: none; }
+
+/* SEARCH HIDE */
+.sh { display: none !important; }
+::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">🔐</div>
+    <div><div class="brand-name">BugBounty</div><div class="brand-sub">Tracker v2.0</div></div>
+  </div>
+
+  <div class="target-box" onclick="navigate('targetinfo')">
+    <div class="target-label">Active Target</div>
+    <div class="target-domain empty" id="sidebar-target">No target set — click to add</div>
+  </div>
+
+  <div class="nav-sec">Checklists</div>
+  <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')"><span class="nav-icon">⚡</span> Dashboard</div>
+  <div class="nav-item" id="nav-quick" onclick="navigate('quick')"><span class="nav-icon">✅</span> Quick Checklist <span class="nav-badge" id="badge-quick">40</span></div>
+  <div class="nav-item" id="nav-p1" onclick="navigate('p1')"><span class="nav-icon">🔴</span> Priority 1 <span class="nav-badge" id="badge-p1">25</span></div>
+  <div class="nav-item" id="nav-p2" onclick="navigate('p2')"><span class="nav-icon">🟠</span> Priority 2 <span class="nav-badge" id="badge-p2">30</span></div>
+  <div class="nav-item" id="nav-advanced" onclick="navigate('advanced')"><span class="nav-icon">🧪</span> Advanced <span class="nav-badge" id="badge-adv">80</span></div>
+
+  <div class="nav-div"></div>
+  <div class="nav-sec">Tools</div>
+  <div class="nav-item" id="nav-workflow" onclick="navigate('workflow')"><span class="nav-icon">🗺️</span> Testing Workflow</div>
+  <div class="nav-item" id="nav-targetinfo" onclick="navigate('targetinfo')"><span class="nav-icon">🎯</span> Target Info</div>
+  <div class="nav-item" id="nav-reports" onclick="navigate('reports')"><span class="nav-icon">📊</span> Reports</div>
+
+  <div class="sidebar-bottom">
+    <div class="nav-item danger" onclick="confirmReset()"><span class="nav-icon">🔄</span> Reset Progress</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-tabs">
+      <div class="topbar-tab active" id="tab-dashboard" onclick="navigate('dashboard')">Overview</div>
+      <div class="topbar-tab" id="tab-quick" onclick="navigate('quick')">Checklist <span class="tab-badge">40</span></div>
+      <div class="topbar-tab" id="tab-p1" onclick="navigate('p1')">Priority 1 <span class="tab-badge">25</span></div>
+      <div class="topbar-tab" id="tab-p2" onclick="navigate('p2')">Priority 2 <span class="tab-badge">30</span></div>
+    </div>
+    <div class="topbar-search">
+      <span style="color:var(--muted)">🔍</span>
+      <input id="search-inp" type="text" placeholder="Search vulnerabilities…" oninput="doSearch(this.value)">
+    </div>
+    <div class="topbar-right">
+      <span class="save-flash" id="save-flash">✓ Saved</span>
+      <div class="topbar-btn" title="Target Info" onclick="navigate('targetinfo')">⚙️</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="main-scroll">
+
+      <!-- DASHBOARD -->
+      <div id="view-dashboard" class="view active">
+        <div class="hero">
+          <div class="hero-left">
+            <div class="hero-title" id="dash-title">Security Assessment</div>
+            <div class="hero-sub" id="dash-sub">Vulnerability Testing Dashboard</div>
+          </div>
+          <div class="hero-badge" id="dash-badge">Not Started</div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Total Checks</div><div class="stat-value">175</div></div>
+          <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value c-blue" id="s-done">0</div></div>
+          <div class="stat-card"><div class="stat-label">Remaining</div><div class="stat-value c-pink" id="s-remain">175</div></div>
+          <div class="stat-card"><div class="stat-label">Coverage</div><div class="stat-value c-purple" id="s-pct">0%</div></div>
+        </div>
+        <div class="prog-card">
+          <div class="prog-header"><div class="prog-title">Overall Coverage</div><div class="prog-pct" id="prog-pct">0%</div></div>
+          <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+          <div class="prog-sub" id="prog-sub">0 of 135 vulnerabilities tested</div>
+        </div>
+        <div class="two-col">
+          <div class="vcard" id="dash-quick-card"></div>
+          <div class="vcard" id="dash-p1-card"></div>
+        </div>
+      </div>
+
+      <!-- QUICK CHECKLIST -->
+      <div id="view-quick" class="view"><div class="vcard" id="full-quick"></div></div>
+
+      <!-- PRIORITY 1 -->
+      <div id="view-p1" class="view"><div class="vcard" id="full-p1"></div></div>
+
+      <!-- PRIORITY 2 -->
+      <div id="view-p2" class="view"><div class="vcard" id="full-p2"></div></div>
+
+      <!-- ADVANCED -->
+      <div id="view-advanced" class="view"><div class="vcard" id="full-advanced"></div></div>
+
+      <!-- WORKFLOW -->
+      <div id="view-workflow" class="view">
+        <div class="hero">
+          <div class="hero-left">
+            <div class="hero-title">Testing Workflow</div>
+            <div class="hero-sub">12-step systematic bug bounty methodology</div>
+          </div>
+          <div class="hero-badge" id="wf-badge">Step 1 of 12</div>
+        </div>
+        <div class="vcard">
+          <div class="vcard-head">
+            <div class="vcard-title">Step-by-Step Process</div>
+            <div class="vcard-count" id="wf-count">0 / 12 done</div>
+          </div>
+          <div id="wf-list"></div>
+          <div class="wf-action-row" id="wf-actions"></div>
+        </div>
+      </div>
+
+      <!-- TARGET INFO -->
+      <div id="view-targetinfo" class="view">
+        <div class="hero">
+          <div class="hero-left"><div class="hero-title">🎯 Target Info</div><div class="hero-sub">Engagement details, scope &amp; credentials</div></div>
+          <div class="hero-badge" id="ti-badge">—</div>
+        </div>
+        <div class="ti-grid">
+          <div class="ti-card">
+            <div class="ti-head">🌐 Target Details</div>
+            <div class="ti-field"><div class="ti-lbl">Domain / URL</div><input class="ti-input mono" id="ti-domain" placeholder="https://example.com" oninput="syncTarget()"></div>
+            <div class="ti-field"><div class="ti-lbl">Company Name</div><input class="ti-input" id="ti-company" placeholder="Acme Corporation"></div>
+            <div class="ti-field"><div class="ti-lbl">Program URL</div><input class="ti-input mono" id="ti-program" placeholder="https://hackerone.com/acme"></div>
+            <div class="ti-field">
+              <div class="ti-lbl">Status</div>
+              <div class="status-row">
+                <button class="status-btn" id="sb-active" onclick="setStatus('Active')">🟢 Active</button>
+                <button class="status-btn" id="sb-paused" onclick="setStatus('Paused')">🟡 Paused</button>
+                <button class="status-btn" id="sb-done" onclick="setStatus('Done')">🔵 Done</button>
+              </div>
+            </div>
+          </div>
+          <div class="ti-card">
+            <div class="ti-head">🏆 Platform</div>
+            <div class="ti-field">
+              <div class="ti-lbl">Bug Bounty Platform</div>
+              <div class="platform-grid" id="plat-grid">
+                <button class="plat-btn" onclick="setPlatform(this)">🟠 HackerOne</button>
+                <button class="plat-btn" onclick="setPlatform(this)">🟣 Bugcrowd</button>
+                <button class="plat-btn" onclick="setPlatform(this)">🔵 Intigriti</button>
+                <button class="plat-btn" onclick="setPlatform(this)">⚫ Synack</button>
+                <button class="plat-btn" onclick="setPlatform(this)">🟤 YesWeHack</button>
+                <button class="plat-btn" onclick="setPlatform(this)">⚪ Private</button>
+              </div>
+            </div>
+            <div class="ti-field"><div class="ti-lbl">Max Bounty</div><input class="ti-input" id="ti-bounty" placeholder="e.g. $10,000 for Critical"></div>
+            <div class="ti-field"><div class="ti-lbl">Start Date</div><input class="ti-input" id="ti-date" type="date"></div>
+          </div>
+          <div class="ti-card">
+            <div class="ti-head">✅ In Scope</div>
+            <div id="scope-in-list"></div>
+            <div class="scope-add-row">
+              <input class="ti-input mono" id="scope-in-inp" placeholder="*.example.com" onkeydown="if(event.key==='Enter')addScope('in')">
+              <button class="scope-add-btn" onclick="addScope('in')">+</button>
+            </div>
+          </div>
+          <div class="ti-card">
+            <div class="ti-head">🚫 Out of Scope</div>
+            <div id="scope-out-list"></div>
+            <div class="scope-add-row">
+              <input class="ti-input mono" id="scope-out-inp" placeholder="admin.example.com" onkeydown="if(event.key==='Enter')addScope('out')">
+              <button class="scope-add-btn" style="background:var(--red)" onclick="addScope('out')">+</button>
+            </div>
+          </div>
+          <div class="ti-card">
+            <div class="ti-head">🛠️ Tech Stack</div>
+            <div class="ti-field">
+              <div class="ti-lbl">Technologies</div>
+              <div class="tag-row" id="tech-tags"><button class="add-tag-btn" onclick="addTechTag()">+ Add tech</button></div>
+            </div>
+            <div class="ti-field"><div class="ti-lbl">WAF / Firewall</div><input class="ti-input" id="ti-waf" placeholder="e.g. Cloudflare, Akamai, None"></div>
+            <div class="ti-field"><div class="ti-lbl">Auth Type</div><input class="ti-input" id="ti-auth" placeholder="e.g. JWT, Session, OAuth2"></div>
+          </div>
+          <div class="ti-card">
+            <div class="ti-head">🔑 Test Credentials</div>
+            <div class="ti-field"><div class="ti-lbl">Username / Email</div><input class="ti-input mono" id="ti-user" placeholder="testuser@example.com"></div>
+            <div class="ti-field"><div class="ti-lbl">Password</div><input class="ti-input mono" type="password" id="ti-pass" placeholder="Test password"></div>
+            <div class="ti-field"><div class="ti-lbl">Account Role</div><input class="ti-input" id="ti-role" placeholder="e.g. standard user, admin"></div>
+            <div class="ti-field"><div class="ti-lbl">API Key / Token</div><input class="ti-input mono" id="ti-apikey" placeholder="Bearer eyJ..."></div>
+          </div>
+          <div class="ti-card full">
+            <div class="ti-head">📝 Notes &amp; Observations</div>
+            <div class="ti-field"><div class="ti-lbl">General Notes</div><textarea class="ti-input" id="ti-notes" placeholder="e.g. Login at /admin uses a separate subdomain. Rate limiting is loose on /api/v2…" style="min-height:90px"></textarea></div>
+            <div class="ti-field"><div class="ti-lbl">Interesting Endpoints Found</div><textarea class="ti-input mono" id="ti-endpoints" placeholder="/api/v2/users&#10;/admin/panel&#10;/internal/debug" style="min-height:70px"></textarea></div>
+            <div class="save-row">
+              <button class="save-btn" onclick="saveTarget()">💾 Save Target Info</button>
+              <span class="saved-ok" id="ti-saved">✓ Saved!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div id="view-reports" class="view">
+        <div class="hero">
+          <div class="hero-left"><div class="hero-title">📊 Reports</div><div class="hero-sub">Assessment summary &amp; coverage analysis</div></div>
+          <div class="hero-badge" id="rpt-date-badge">—</div>
+        </div>
+        <div class="rpt-grid">
+          <div class="rpt-card">
+            <div class="rpt-head">🎯 Overall Coverage</div>
+            <div class="donut-wrap">
+              <svg width="110" height="110" viewBox="0 0 110 110" style="flex-shrink:0">
+                <circle cx="55" cy="55" r="42" fill="none" stroke="#f0ebff" stroke-width="14"/>
+                <circle id="donut-arc" cx="55" cy="55" r="42" fill="none" stroke="url(#dg)" stroke-width="14" stroke-dasharray="0 264" stroke-dashoffset="66" stroke-linecap="round" style="transition:stroke-dasharray 0.7s ease"/>
+                <defs><linearGradient id="dg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#7c5cbf"/><stop offset="100%" stop-color="#e879c5"/></linearGradient></defs>
+                <text x="55" y="50" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="17" font-weight="800" fill="#1a1a2e" id="donut-txt">0%</text>
+                <text x="55" y="63" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="9" fill="#8a8fa8">coverage</text>
+              </svg>
+              <div class="donut-legend">
+                <div class="dl-item"><div class="dl-dot" style="background:var(--purple)"></div><span style="color:var(--muted)">Tested</span><span class="dl-val" id="dl-tested">0</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:#f0ebff"></div><span style="color:var(--muted)">Remaining</span><span class="dl-val" id="dl-remain">135</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--pink)"></div><span style="color:var(--muted)">Total</span><span class="dl-val">175</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="rpt-card">
+            <div class="rpt-head">📂 Section Breakdown</div>
+            <div class="rbar-row"><div class="rbar-hd"><span class="rbar-name">Quick (40)</span><span class="rbar-pct" id="rp-quick">0%</span></div><div class="rbar-track"><div class="rbar-fill" id="rf-quick" style="width:0%;background:var(--purple)"></div></div></div>
+            <div class="rbar-row"><div class="rbar-hd"><span class="rbar-name">Priority 1 (25)</span><span class="rbar-pct" id="rp-p1">0%</span></div><div class="rbar-track"><div class="rbar-fill" id="rf-p1" style="width:0%;background:var(--pink)"></div></div></div>
+            <div class="rbar-row"><div class="rbar-hd"><span class="rbar-name">Priority 2 (30)</span><span class="rbar-pct" id="rp-p2">0%</span></div><div class="rbar-track"><div class="rbar-fill" id="rf-p2" style="width:0%;background:var(--blue)"></div></div></div>
+            <div class="rbar-row"><div class="rbar-hd"><span class="rbar-name">Advanced (80)</span><span class="rbar-pct" id="rp-adv">0%</span></div><div class="rbar-track"><div class="rbar-fill" id="rf-adv" style="width:0%;background:var(--orange)"></div></div></div>
+          </div>
+          <div class="rpt-card full">
+            <div class="rpt-head"><span>✅ Tested Vulnerabilities</span><span style="font-size:12px;font-weight:500;color:var(--muted)" id="rpt-tested-lbl">0 tested</span></div>
+            <div id="rpt-tested-empty" class="empty-msg">No vulnerabilities tested yet. Start checking items off!</div>
+            <table class="rpt-table" id="rpt-tested-tbl" style="display:none"><thead><tr><th>Vulnerability</th><th>Section</th><th>Status</th></tr></thead><tbody id="rpt-tested-body"></tbody></table>
+          </div>
+          <div class="rpt-card full">
+            <div class="rpt-head"><span>⚠️ High Priority — Not Yet Tested</span><span style="font-size:12px;font-weight:500;color:var(--muted)" id="rpt-hi-lbl">—</span></div>
+            <div id="rpt-hi-empty" class="empty-msg" style="display:none">🎉 All high priority items tested!</div>
+            <table class="rpt-table" id="rpt-hi-tbl"><thead><tr><th>Vulnerability</th><th>Section</th><th>Severity</th></tr></thead><tbody id="rpt-hi-body"></tbody></table>
+          </div>
+          <div class="rpt-card full">
+            <div class="rpt-head">💾 Export Report</div>
+            <div class="big-stats">
+              <div class="big-stat"><div class="big-num c-purple" id="exp-pct">0%</div><div class="big-lbl">Coverage</div></div>
+              <div class="big-stat"><div class="big-num c-pink" id="exp-done">0</div><div class="big-lbl">Tested</div></div>
+              <div class="big-stat"><div class="big-num c-blue" id="exp-rem">175</div><div class="big-lbl">Remaining</div></div>
+            </div>
+            <div class="export-row">
+              <button class="exp-btn primary" onclick="exportCSV()">⬇️ Export CSV</button>
+              <button class="exp-btn" onclick="exportText()">📄 Text Report</button>
+              <button class="exp-btn" onclick="copyReport()">📋 Copy</button>
+              <button class="exp-btn" onclick="window.print()">🖨️ Print</button>
+            </div>
+            <div class="exp-confirm" id="exp-confirm">✓ Copied to clipboard!</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-scroll -->
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="rp-card">
+        <div class="rp-title">Section Progress</div>
+        <div class="pri-row"><span class="pri-lbl">Quick (40)</span><div class="pri-track"><div class="pri-fill" id="rp-bar-quick" style="width:0%;background:var(--purple)"></div></div><span class="pri-n" id="rp-n-quick">0</span></div>
+        <div class="pri-row"><span class="pri-lbl">Priority 1 (25)</span><div class="pri-track"><div class="pri-fill" id="rp-bar-p1" style="width:0%;background:var(--pink)"></div></div><span class="pri-n" id="rp-n-p1">0</span></div>
+        <div class="pri-row"><span class="pri-lbl">Priority 2 (30)</span><div class="pri-track"><div class="pri-fill" id="rp-bar-p2" style="width:0%;background:var(--blue)"></div></div><span class="pri-n" id="rp-n-p2">0</span></div>
+        <div class="pri-row"><span class="pri-lbl">Advanced (80)</span><div class="pri-track"><div class="pri-fill" id="rp-bar-adv" style="width:0%;background:var(--orange)"></div></div><span class="pri-n" id="rp-n-adv">0</span></div>
+      </div>
+      <div class="rp-card">
+        <div class="rp-title">Workflow Progress</div>
+        <div id="rp-wf"></div>
+      </div>
+      <div class="rp-card">
+        <div class="rp-title">Recent Activity</div>
+        <div id="rp-activity"><div class="empty-msg">No activity yet</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// DATA DEFINITIONS
+// ════════════════════════════════════════════
+const SECTIONS = {
+
+  // QUICK 40 — essential first-pass checklist (40 unique items)
+  quick: { title: 'Quick 40 Checklist', groups: [
+    { label: 'Recon', items: [
+      'Subdomain enumeration','Directory brute force','JavaScript endpoint discovery',
+      'Wayback URL discovery','Parameter discovery','Hidden files discovery',
+      'Backup files exposure','API endpoint discovery'
+    ]},
+    { label: 'Information Disclosure', items: [
+      'Git repository exposure','API key exposure','Sensitive data in JS',
+      'Debug endpoints exposed','Source map exposure'
+    ]},
+    { label: 'Access Control', items: [
+      'IDOR','Horizontal privilege escalation','Vertical privilege escalation',
+      'Forced browsing','API authorization bypass','Broken object level authorization'
+    ]},
+    { label: 'Authentication', items: [
+      'Login brute force protection','Password reset flaws','Password reset token reuse',
+      'OTP brute force','Default credentials','Username enumeration'
+    ]},
+    { label: 'XSS', items: [
+      'Reflected XSS','Stored XSS','DOM XSS',
+      'HTML injection','CORS misconfiguration','Clickjacking'
+    ]},
+    { label: 'File Handling', items: [
+      'File upload bypass','MIME type bypass','Path traversal'
+    ]},
+    { label: 'API Security', items: [
+      'Mass assignment','Parameter pollution','Rate limit bypass'
+    ]},
+    { label: 'Business Logic', items: [
+      'Coupon abuse','Race condition','Negative price manipulation'
+    ]}
+  ]},
+
+  // PRIORITY 1 — critical/high severity, all unique from Quick (25 items)
+  p1: { title: 'Priority 1 Vulnerabilities', groups: [
+    { label: 'Server-Side Injection', items: [
+      'SQL injection','Blind SQL injection','Command injection',
+      'Server-Side Template Injection (SSTI)','XML External Entity (XXE)'
+    ]},
+    { label: 'SSRF', items: [
+      'SSRF to internal services','SSRF to cloud metadata endpoint','SSRF via URL redirect'
+    ]},
+    { label: 'Authentication Bypass', items: [
+      'JWT manipulation','OAuth token leakage','SAML authentication bypass',
+      'Session fixation','Account takeover via OAuth misconfiguration'
+    ]},
+    { label: 'Access Control Critical', items: [
+      'Broken function level authorization','Admin panel unauthorized access',
+      'Privilege escalation via role parameter','Object-level auth bypass in GraphQL'
+    ]},
+    { label: 'Deserialization', items: [
+      'Java deserialization RCE','PHP object injection','Python pickle deserialization'
+    ]},
+    { label: 'Critical Disclosure', items: [
+      'AWS/GCP/Azure credentials in source','Private key or certificate exposure',
+      'Database credentials exposed','Internal network topology leak',
+      'Hard-coded credentials in API'
+    ]}
+  ]},
+
+  // PRIORITY 2 — medium/high severity, all unique from Quick & P1 (30 items)
+  p2: { title: 'Priority 2 Vulnerabilities', groups: [
+    { label: 'Injection', items: [
+      'NoSQL injection','LDAP injection','XPath injection',
+      'CSV injection','Email header injection'
+    ]},
+    { label: 'File Attacks', items: [
+      'LFI (Local File Inclusion)','RFI (Remote File Inclusion)','File extension bypass',
+      'Zip slip archive attack','Null byte injection'
+    ]},
+    { label: 'Client-Side', items: [
+      'CSRF (Cross-Site Request Forgery)','Open redirect','Subdomain takeover',
+      'DOM-based open redirect','CSS injection'
+    ]},
+    { label: 'Protocol & Headers', items: [
+      'Host header injection','CRLF injection','HTTP verb tampering',
+      'WebSocket cross-origin abuse','SMTP injection'
+    ]},
+    { label: 'Token & Session', items: [
+      'JWT algorithm confusion','Weak session token entropy','Cookie security flags missing',
+      'Session token exposed in URL','Credential stuffing'
+    ]},
+    { label: 'API & GraphQL', items: [
+      'GraphQL introspection enabled','GraphQL batch query abuse','Swagger / OpenAPI exposure',
+      'API versioning endpoint bypass','XML injection'
+    ]}
+  ]},
+
+  // ADVANCED 80 — deep/specialized techniques, all unique (16 groups × 5 = 80)
+  advanced: { title: 'Advanced Vulnerabilities', groups: [
+    { label: 'Advanced SQL & NoSQL Injection', items: [
+      'Second-order SQL injection','Out-of-band SQL injection',
+      'NoSQL operator injection ($where/$ne)','OGNL injection (Apache Struts)',
+      'Expression language injection (SpEL/EL)'
+    ]},
+    { label: 'Advanced SSRF', items: [
+      'Blind SSRF via DNS callback','SSRF to AWS EC2 IMDSv2 metadata',
+      'SSRF filter bypass via URL encoding','SSRF via HTTP 301 redirect chain',
+      'SSRF to internal Kubernetes API server'
+    ]},
+    { label: 'Advanced XXE', items: [
+      'Blind XXE via out-of-band channel','XXE via SVG file upload',
+      'XXE via XLSX / DOCX file parsing','XXE in SOAP request body',
+      'XXE via DTD parameter entity injection'
+    ]},
+    { label: 'HTTP Protocol Attacks', items: [
+      'HTTP request smuggling CL.TE','HTTP request smuggling TE.CL',
+      'HTTP/2 desync (h2 to h1 smuggling)','H2C cleartext upgrade smuggling',
+      'Response queue poisoning'
+    ]},
+    { label: 'Web Cache Attacks', items: [
+      'Web cache poisoning via unkeyed headers','Web cache deception',
+      'Cache key injection','CPDoS (Cache-Poisoned Denial of Service)',
+      'Fat GET request cache poisoning'
+    ]},
+    { label: 'OAuth & SSO Deep Dive', items: [
+      'OAuth CSRF via missing state parameter','OAuth redirect_uri manipulation',
+      'Authorization code injection attack','SAML XML signature wrapping',
+      'OpenID Connect misconfiguration'
+    ]},
+    { label: 'Advanced JWT Attacks', items: [
+      'JWT none algorithm bypass','JWT RS256 to HS256 algorithm confusion',
+      'JWT kid header path traversal','JWT JKU / X5U spoofing',
+      'JWT weak secret brute force'
+    ]},
+    { label: 'Advanced XSS Techniques', items: [
+      'mXSS (mutation-based XSS)','DOM clobbering',
+      'PostMessage cross-origin abuse','Service worker script hijacking',
+      'Dangling markup injection'
+    ]},
+    { label: 'Prototype Pollution', items: [
+      'Client-side prototype pollution','Server-side prototype pollution (Node.js)',
+      'Prototype pollution to RCE','Prototype pollution to XSS',
+      'AST injection via prototype pollution'
+    ]},
+    { label: 'Cryptography Attacks', items: [
+      'Padding oracle attack','CBC bit-flipping attack',
+      'Hash length extension attack','ECDSA nonce reuse vulnerability',
+      'Timing side-channel on token comparison'
+    ]},
+    { label: 'Race Conditions Advanced', items: [
+      'Race condition on purchase / checkout','Limit overrun via concurrent requests',
+      'TOCTOU (time-of-check to time-of-use)','Double spend vulnerability',
+      'Concurrent session privilege abuse'
+    ]},
+    { label: 'Business Logic Advanced', items: [
+      'Order total manipulation','Negative quantity exploit',
+      'Gift card replay attack','Loyalty points inflation',
+      'Payment method substitution'
+    ]},
+    { label: 'Cloud Security', items: [
+      'AWS S3 bucket misconfiguration','AWS IAM privilege escalation',
+      'GCP service account key exposure','Kubernetes RBAC misconfiguration',
+      'Azure managed identity abuse'
+    ]},
+    { label: 'Exposed Internal Services', items: [
+      'Jenkins unauthenticated RCE','Grafana authentication bypass',
+      'Redis unauthenticated access','MongoDB open instance',
+      'Elasticsearch unauthenticated'
+    ]},
+    { label: 'Deserialization Advanced', items: [
+      '.NET ViewState / BinaryFormatter deserialization','Ruby Marshal deserialization',
+      'Node.js YAML.load() deserialization','Java RMI deserialization attack',
+      'JMX unauthenticated remote exposure'
+    ]},
+    { label: 'Server Misconfiguration', items: [
+      'Nginx alias path traversal','Apache HTTPD directory listing',
+      'PHP type juggling authentication bypass','Tomcat manager default credentials',
+      'IIS short filename (8.3) disclosure'
+    ]}
+  ]}
+};
+
+const WORKFLOW = [
+  { title: 'Recon', desc: 'Subdomain enum, DNS, ASN, OSINT gathering' },
+  { title: 'Endpoint Mapping', desc: 'Directory brute force, Wayback, JS parsing' },
+  { title: 'JavaScript Analysis', desc: 'Extract endpoints, API keys, secrets from JS' },
+  { title: 'Information Disclosure', desc: 'Git repos, debug endpoints, stack traces' },
+  { title: 'Access Control Testing', desc: 'IDOR, privilege escalation, forced browsing' },
+  { title: 'Authentication Testing', desc: 'Password reset, OTP, session fixation' },
+  { title: 'XSS Testing', desc: 'Reflected, Stored, DOM — all injection contexts' },
+  { title: 'Injection Testing', desc: 'SQLi, NoSQLi, SSTI, Command injection, XXE' },
+  { title: 'File Upload Testing', desc: 'Extension bypass, MIME, path traversal' },
+  { title: 'API Security Testing', desc: 'Mass assignment, BOLA, rate limiting, fuzzing' },
+  { title: 'Business Logic Testing', desc: 'Race conditions, price manipulation, flows' },
+  { title: 'Infrastructure Testing', desc: 'Cloud buckets, exposed services, open ports' }
+];
+
+const CRIT_VULNS = ['sql injection','blind sql injection','command injection','xxe','ssrf','stored xss','ssti','java deserialization','payment bypass'];
+const HIGH_VULNS = ['reflected xss','dom xss','idor','password reset','api key exposure','cors misconfiguration','jwt manipulation','git repository','broken object','vertical privilege','horizontal privilege','mass assignment','blind ssrf','saml bypass'];
+const ALL_HIGH = [...CRIT_VULNS, ...HIGH_VULNS];
+const SEC_NAMES = { quick: 'Quick Checklist', p1: 'Priority 1', p2: 'Priority 2', advanced: 'Advanced' };
+
+function getPriority(name) {
+  const n = name.toLowerCase();
+  if (CRIT_VULNS.some(k => n.includes(k))) return 'pc';
+  if (HIGH_VULNS.some(k => n.includes(k))) return 'ph';
+  if (['path traversal','lfi','rfi','crlf','host header','clickjacking','session fixation','race condition','html injection'].some(k => n.includes(k))) return 'pm';
+  return 'pl';
+}
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let checked = {};
+let actLog = [];
+let wfProgress = 0;
+let targetData = { domain:'', company:'', program:'', status:'', platform:'', bounty:'', date:'', waf:'', auth:'', user:'', pass:'', role:'', apikey:'', notes:'', endpoints:'' };
+let scopeIn = [], scopeOut = [], techTags = [];
+
+function buildKeys() {
+  Object.keys(SECTIONS).forEach(sec =>
+    SECTIONS[sec].groups.forEach(g =>
+      g.items.forEach(item => { const k = sec+'::'+item; if(checked[k]===undefined) checked[k]=false; })
+    )
+  );
+  // Remove any stale keys from old sessions that no longer exist in SECTIONS
+  const validKeys = new Set(
+    Object.keys(SECTIONS).flatMap(sec =>
+      SECTIONS[sec].groups.flatMap(g => g.items.map(item => sec+'::'+item))
+    )
+  );
+  Object.keys(checked).forEach(k => { if(!validKeys.has(k)) delete checked[k]; });
+}
+
+// ════════════════════════════════════════════
+// PERSISTENCE
+// ════════════════════════════════════════════
+const CK='bbt2_chk', TK='bbt2_tgt', SK='bbt2_scope', TCK='bbt2_tech', WK='bbt2_wf', AK='bbt2_act';
+
+function save() {
+  try {
+    localStorage.setItem(CK, JSON.stringify(checked));
+    localStorage.setItem(TK, JSON.stringify(targetData));
+    localStorage.setItem(SK, JSON.stringify({in:scopeIn,out:scopeOut}));
+    localStorage.setItem(TCK, JSON.stringify(techTags));
+    localStorage.setItem(WK, wfProgress);
+    localStorage.setItem(AK, JSON.stringify(actLog));
+  } catch(e){}
+  flashSave();
+}
+
+function load() {
+  try {
+    const c=localStorage.getItem(CK); if(c) Object.assign(checked, JSON.parse(c));
+    const t=localStorage.getItem(TK); if(t) Object.assign(targetData, JSON.parse(t));
+    const s=localStorage.getItem(SK); if(s){const d=JSON.parse(s);scopeIn=d.in||[];scopeOut=d.out||[];}
+    const tc=localStorage.getItem(TCK); if(tc) techTags=JSON.parse(tc);
+    const wf=localStorage.getItem(WK); if(wf!==null) wfProgress=parseInt(wf)||0;
+    const al=localStorage.getItem(AK); if(al) actLog=JSON.parse(al);
+  } catch(e){}
+}
+
+function flashSave() {
+  const el=document.getElementById('save-flash');
+  el.style.opacity='1'; clearTimeout(el._t);
+  el._t=setTimeout(()=>el.style.opacity='0',1500);
+}
+
+// ════════════════════════════════════════════
+// STATS & UPDATE
+// ════════════════════════════════════════════
+function getStats() {
+  let total=0,done=0;
+  const sd={quick:0,p1:0,p2:0,advanced:0},st={quick:0,p1:0,p2:0,advanced:0};
+  Object.keys(SECTIONS).forEach(sec=>{
+    SECTIONS[sec].groups.forEach(g=>{
+      g.items.forEach(item=>{
+        const k=sec+'::'+item;
+        total++;st[sec]++;
+        if(checked[k]){done++;sd[sec]++;}
+      });
+    });
+  });
+  return {total,done,sd,st};
+}
+
+function updateAll() {
+  const {total,done,sd,st}=getStats();
+  const pct=total>0?Math.round(done/total*100):0;
+
+  // Stats cards
+  $('s-done').textContent=done; $('s-remain').textContent=total-done; $('s-pct').textContent=pct+'%';
+  $('prog-pct').textContent=pct+'%'; $('prog-fill').style.width=pct+'%';
+  $('prog-sub').textContent=`${done} of ${total} vulnerabilities tested`;
+
+  // Dashboard hero
+  const dom = targetData.domain.replace(/https?:\/\//,'')||null;
+  $('dash-title').textContent = dom || 'Security Assessment';
+  $('dash-sub').textContent = dom ? `Testing: ${dom}` : 'Vulnerability Testing Dashboard';
+  $('dash-badge').textContent = pct===100?'Complete ✓':pct>0?'In Progress':'Not Started';
+
+  // Section bars + nav badges
+  const barColors={quick:'var(--purple)',p1:'var(--pink)',p2:'var(--blue)',advanced:'var(--orange)'};
+  Object.keys(sd).forEach(s=>{
+    const p=st[s]>0?Math.round(sd[s]/st[s]*100):0;
+    const rem=st[s]-sd[s];
+    const bar=$('rp-bar-'+s); if(bar){bar.style.width=p+'%';bar.style.background=barColors[s];}
+    $t('rp-n-'+s,sd[s]);
+    $t('badge-'+s.replace('p1','p1').replace('p2','p2').replace('advanced','adv'),rem);
+  });
+
+  renderWfPanel();
+}
+
+function $(id){return document.getElementById(id);}
+function $t(id,v){const e=$(id);if(e)e.textContent=v;}
+
+// ════════════════════════════════════════════
+// RENDER VULN CARDS
+// ════════════════════════════════════════════
+function renderVcard(containerId, sec, maxH) {
+  const el=$(containerId); if(!el) return;
+  const data=SECTIONS[sec];
+  const allItems=data.groups.flatMap(g=>g.items);
+  const total=allItems.length, done=allItems.filter(item=>checked[sec+'::'+item]).length;
+  el.innerHTML=`
+    <div class="vcard-head">
+      <div class="vcard-title">${data.title}</div>
+      <div class="vcard-count">${done}/${total}</div>
+    </div>
+    <div class="vlist" style="max-height:${maxH||520}px">
+      ${data.groups.map(g=>`
+        <div class="vgroup">
+          <div class="vgroup-label">${g.label}</div>
+          ${g.items.map(item=>{
+            const k=sec+'::'+item, d=checked[k], p=getPriority(item);
+            return `<div class="vitem${d?' done':''}" onclick="toggle('${k}',this)" data-name="${item.toLowerCase()}">
+              <div class="vcb">${d?'✓':''}</div>
+              <span class="vname">${item}</span>
+              <div class="pdot ${p}"></div>
+            </div>`;
+          }).join('')}
+        </div>`).join('')}
+    </div>`;
+}
+
+function toggle(key, el) {
+  checked[key] = !checked[key];
+  el.classList.toggle('done', checked[key]);
+  el.querySelector('.vcb').textContent = checked[key]?'✓':'';
+  const name=key.split('::')[1], sec=key.split('::')[0];
+  if(checked[key]) {
+    actLog.unshift({name,sec,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),ts:Date.now()});
+    if(actLog.length>50) actLog.pop();
+  }
+  save();
+  updateAll();
+  renderActivity();
+  // update mini cards if visible
+  if($('view-dashboard').classList.contains('active')) {
+    renderVcard('dash-quick-card','quick',180);
+    renderVcard('dash-p1-card','p1',180);
+  }
+}
+
+// ════════════════════════════════════════════
+// ACTIVITY LOG
+// ════════════════════════════════════════════
+function renderActivity() {
+  const el=$('rp-activity'); if(!el) return;
+  if(!actLog.length){el.innerHTML='<div class="empty-msg">No activity yet</div>';return;}
+  el.innerHTML=actLog.slice(0,7).map(a=>`
+    <div class="act-item">
+      <div class="act-dot">✓</div>
+      <span class="act-name">${a.name}</span>
+      <span class="act-time">${a.time}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════
+// WORKFLOW
+// ════════════════════════════════════════════
+function renderWfFull() {
+  const list=$('wf-list'); if(!list) return;
+  list.innerHTML=WORKFLOW.map((s,i)=>{
+    const done=i<wfProgress, curr=i===wfProgress;
+    return `<div class="wf-full-step">
+      <div class="wf-full-num${done?' done':curr?' curr':''}">${done?'✓':i+1}</div>
+      <div class="wf-full-body">
+        <div class="wf-full-title">${s.title}</div>
+        <div class="wf-full-desc">${s.desc}</div>
+      </div>
+      <span class="wf-full-badge${done?' done':curr?' curr':' pend'}">${done?'Done':curr?'Active':'Pending'}</span>
+    </div>`;
+  }).join('');
+  $t('wf-count', wfProgress+' / 12 done');
+  $t('wf-badge', wfProgress>=12?'Complete ✓':`Step ${Math.min(wfProgress+1,12)} of 12`);
+  // Action buttons
+  const acts=$('wf-actions'); if(!acts) return;
+  const canBack = wfProgress>0, canNext = wfProgress<12;
+  acts.innerHTML=`
+    ${canBack?`<button class="exp-btn" onclick="stepWf(-1)" style="font-size:12px">← Previous Step</button>`:''}
+    ${canNext?`<button class="exp-btn primary" onclick="stepWf(1)" style="font-size:12px">✓ Mark Step Done →</button>`:'<span style="font-size:13px;font-weight:700;color:var(--green);padding:6px 0">🎉 All steps complete!</span>'}
+    <button class="exp-btn" onclick="resetWf()" style="font-size:12px;margin-left:auto">↺ Reset Workflow</button>`;
+}
+
+function stepWf(d) {
+  wfProgress=Math.max(0,Math.min(12,wfProgress+d));
+  save(); renderWfFull(); renderWfPanel();
+}
+function resetWf() {
+  if(!confirm('Reset workflow progress?')) return;
+  wfProgress=0; save(); renderWfFull(); renderWfPanel();
+}
+
+function renderWfPanel() {
+  const el=$('rp-wf'); if(!el) return;
+  el.innerHTML=WORKFLOW.slice(0,6).map((s,i)=>{
+    const done=i<wfProgress, curr=i===wfProgress;
+    return `<div class="wf-step">
+      <div class="wf-num${done?' done':curr?' curr':''}">${done?'✓':i+1}</div>
+      <div class="wf-lbl">${s.title}</div>
+      ${done?'<span class="wf-tag done">Done</span>':curr?'<span class="wf-tag curr">Active</span>':''}
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════
+const ALL_VIEWS=['dashboard','quick','p1','p2','advanced','workflow','targetinfo','reports'];
+const TAB_MAP={dashboard:'tab-dashboard',quick:'tab-quick',p1:'tab-p1',p2:'tab-p2'};
+
+function navigate(id) {
+  ALL_VIEWS.forEach(v=>{const e=$('view-'+v);if(e)e.classList.remove('active');});
+  const v=$('view-'+id); if(v) v.classList.add('active');
+
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  const n=$('nav-'+id); if(n) n.classList.add('active');
+
+  document.querySelectorAll('.topbar-tab').forEach(e=>e.classList.remove('active'));
+  const t=TAB_MAP[id]?$(TAB_MAP[id]):null; if(t) t.classList.add('active');
+
+  if(id==='quick') renderVcard('full-quick','quick');
+  if(id==='p1') renderVcard('full-p1','p1');
+  if(id==='p2') renderVcard('full-p2','p2');
+  if(id==='advanced') renderVcard('full-advanced','advanced');
+  if(id==='workflow') renderWfFull();
+  if(id==='targetinfo') loadTargetForm();
+  if(id==='reports') renderReports();
+
+  // Clear search when switching views
+  const si=$('search-inp'); if(si){si.value='';doSearch('');}
+}
+
+// ════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════
+function doSearch(q) {
+  const lower=q.trim().toLowerCase();
+  document.querySelectorAll('.vitem').forEach(item=>{
+    item.classList.toggle('sh', !!lower && !item.dataset.name.includes(lower));
+  });
+  document.querySelectorAll('.vgroup').forEach(g=>{
+    const vis=[...g.querySelectorAll('.vitem')].some(i=>!i.classList.contains('sh'));
+    g.classList.toggle('sh', !!lower && !vis);
+  });
+}
+
+// ════════════════════════════════════════════
+// TARGET INFO
+// ════════════════════════════════════════════
+function syncTarget() {
+  const val=($('ti-domain')||{value:''}).value.trim();
+  const sb=$('sidebar-target');
+  if(val){sb.textContent=val.replace(/https?:\/\//,'');sb.classList.remove('empty');}
+  else{sb.textContent='No target set — click to add';sb.classList.add('empty');}
+}
+
+function setStatus(s) {
+  targetData.status=s;
+  const cls={Active:'sel-a',Paused:'sel-p',Done:'sel-d'};
+  ['sb-active','sb-paused','sb-done'].forEach(id=>{const e=$(id);if(e)e.className='status-btn';});
+  const ids={Active:'sb-active',Paused:'sb-paused',Done:'sb-done'};
+  const e=$(ids[s]); if(e) e.classList.add(cls[s]);
+  $t('ti-badge',s);
+}
+
+function setPlatform(el) {
+  document.querySelectorAll('.plat-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  targetData.platform=el.textContent.trim();
+}
+
+function addScope(type) {
+  const inp=$('scope-'+type+'-inp');
+  const val=inp.value.trim(); if(!val) return;
+  (type==='in'?scopeIn:scopeOut).push(val); inp.value='';
+  renderScopes(); save();
+}
+function removeScope(type,idx) {
+  (type==='in'?scopeIn:scopeOut).splice(idx,1);
+  renderScopes(); save();
+}
+function renderScopes() {
+  ['in','out'].forEach(type=>{
+    const arr=type==='in'?scopeIn:scopeOut;
+    const el=$('scope-'+type+'-list'); if(!el) return;
+    el.innerHTML=arr.map((v,i)=>`
+      <div class="scope-item scope-${type}">
+        <div class="scope-dot"></div>
+        <span style="flex:1">${v}</span>
+        <span class="scope-del" onclick="removeScope('${type}',${i})">×</span>
+      </div>`).join('');
+  });
+}
+
+function addTechTag() {
+  const val=prompt('Technology (e.g. React, Django, PostgreSQL):');
+  if(!val||!val.trim()) return;
+  techTags.push(val.trim()); renderTechTags(); save();
+}
+function removeTechTag(i){techTags.splice(i,1);renderTechTags();save();}
+function renderTechTags() {
+  const el=$('tech-tags'); if(!el) return;
+  el.innerHTML=techTags.map((t,i)=>`<div class="tag">${t}<span class="tag-x" onclick="removeTechTag(${i})">×</span></div>`).join('')
+    +'<button class="add-tag-btn" onclick="addTechTag()">+ Add tech</button>';
+}
+
+function readForm() {
+  const g=id=>($( id)||{value:''}).value;
+  Object.assign(targetData,{domain:g('ti-domain'),company:g('ti-company'),program:g('ti-program'),bounty:g('ti-bounty'),date:g('ti-date'),waf:g('ti-waf'),auth:g('ti-auth'),user:g('ti-user'),pass:g('ti-pass'),role:g('ti-role'),apikey:g('ti-apikey'),notes:g('ti-notes'),endpoints:g('ti-endpoints')});
+}
+
+function loadTargetForm() {
+  const s=(id,v)=>{const e=$(id);if(e)e.value=v||'';};
+  s('ti-domain',targetData.domain);s('ti-company',targetData.company);s('ti-program',targetData.program);
+  s('ti-bounty',targetData.bounty);s('ti-date',targetData.date);s('ti-waf',targetData.waf);
+  s('ti-auth',targetData.auth);s('ti-user',targetData.user);s('ti-pass',targetData.pass);
+  s('ti-role',targetData.role);s('ti-apikey',targetData.apikey);s('ti-notes',targetData.notes);
+  s('ti-endpoints',targetData.endpoints);
+  if(targetData.status) setStatus(targetData.status); else $t('ti-badge','—');
+  if(targetData.platform) document.querySelectorAll('.plat-btn').forEach(b=>{b.classList.toggle('sel',b.textContent.trim()===targetData.platform);});
+  renderScopes(); renderTechTags(); syncTarget();
+}
+
+function saveTarget() {
+  readForm(); syncTarget(); save();
+  updateAll();
+  const ok=$('ti-saved'); if(ok){ok.classList.add('show');setTimeout(()=>ok.classList.remove('show'),2500);}
+}
+
+// ════════════════════════════════════════════
+// REPORTS
+// ════════════════════════════════════════════
+function renderReports() {
+  const {total,done,sd,st}=getStats();
+  const pct=total>0?Math.round(done/total*100):0;
+  const circ=2*Math.PI*42;
+  const arc=$('donut-arc');
+  if(arc) arc.setAttribute('stroke-dasharray',`${circ*pct/100} ${circ*(1-pct/100)}`);
+  $t('donut-txt',pct+'%'); $t('dl-tested',done); $t('dl-remain',total-done);
+  $t('rpt-date-badge',new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}));
+
+  const sm={quick:['rp-quick','rf-quick'],p1:['rp-p1','rf-p1'],p2:['rp-p2','rf-p2'],advanced:['rp-adv','rf-adv']};
+  const barC={quick:'var(--purple)',p1:'var(--pink)',p2:'var(--blue)',advanced:'var(--orange)'};
+  Object.keys(sm).forEach(s=>{
+    const p=st[s]>0?Math.round(sd[s]/st[s]*100):0;
+    $t(sm[s][0],p+'%');
+    const b=$(sm[s][1]);if(b){b.style.width=p+'%';b.style.background=barC[s];}
+  });
+
+  $t('exp-pct',pct+'%'); $t('exp-done',done); $t('exp-rem',total-done);
+
+  const testedKs=Object.keys(checked).filter(k=>checked[k]);
+  $t('rpt-tested-lbl',testedKs.length+' tested');
+  const te=$('rpt-tested-empty'),tt=$('rpt-tested-tbl'),tb=$('rpt-tested-body');
+  if(testedKs.length===0){if(te)te.style.display='block';if(tt)tt.style.display='none';}
+  else{
+    if(te)te.style.display='none';if(tt)tt.style.display='table';
+    if(tb)tb.innerHTML=testedKs.map(k=>{
+      const[sec,name]=k.split('::');
+      return `<tr><td style="font-weight:600">${name}</td><td style="color:var(--muted)">${SEC_NAMES[sec]}</td><td><span class="chip chip-done">✓ Tested</span></td></tr>`;
+    }).join('');
+  }
+
+  const hiUntested=Object.keys(checked).filter(k=>!checked[k]&&ALL_HIGH.some(h=>k.split('::')[1].toLowerCase().includes(h)));
+  $t('rpt-hi-lbl',hiUntested.length+' remaining');
+  const he=$('rpt-hi-empty'),ht=$('rpt-hi-tbl'),hb=$('rpt-hi-body');
+  if(hiUntested.length===0){if(he)he.style.display='block';if(ht)ht.style.display='none';}
+  else{
+    if(he)he.style.display='none';if(ht)ht.style.display='table';
+    if(hb)hb.innerHTML=hiUntested.map(k=>{
+      const[sec,name]=k.split('::');
+      const isCrit=CRIT_VULNS.some(c=>name.toLowerCase().includes(c));
+      return `<tr><td style="font-weight:600">${name}</td><td style="color:var(--muted)">${SEC_NAMES[sec]}</td><td><span class="chip ${isCrit?'chip-crit':'chip-high'}">${isCrit?'Critical':'High'}</span></td></tr>`;
+    }).join('');
+  }
+}
+
+function buildReport() {
+  const {total,done,sd,st}=getStats();
+  const pct=total>0?Math.round(done/total*100):0;
+  const target=targetData.domain.replace(/https?:\/\//,'')||'—';
+  const testedKs=Object.keys(checked).filter(k=>checked[k]);
+  return [
+    '═══════════════════════════════════════',
+    '    BUG BOUNTY ASSESSMENT REPORT',
+    '═══════════════════════════════════════',
+    `Target   : ${target}`,`Company  : ${targetData.company||'—'}`,
+    `Platform : ${targetData.platform||'—'}`,`Date     : ${new Date().toLocaleDateString()}`,
+    `Coverage : ${pct}% (${done}/${total})`,`Status   : ${targetData.status||'—'}`,
+    '','─── SECTION BREAKDOWN ───────────────',
+    ...Object.keys(sd).map(s=>`  ${SEC_NAMES[s]}: ${sd[s]}/${st[s]} (${st[s]>0?Math.round(sd[s]/st[s]*100):0}%)`),
+    '','─── TESTED VULNERABILITIES ──────────',
+    ...(testedKs.length?testedKs.map(k=>`  ✓ ${k.split('::')[1]}`):['  None yet']),
+    '','─── HIGH PRIORITY REMAINING ─────────',
+    ...Object.keys(checked).filter(k=>!checked[k]&&ALL_HIGH.some(h=>k.split('::')[1].toLowerCase().includes(h))).map(k=>`  ⚠ ${k.split('::')[1]}`),
+    '','═══════════════════════════════════════'
+  ].join('\n');
+}
+
+function exportCSV() {
+  const rows=[['Vulnerability','Section','Status','Severity']];
+  Object.keys(checked).forEach(k=>{
+    const[sec,name]=k.split('::');
+    const p=getPriority(name);
+    rows.push([name,SEC_NAMES[sec],checked[k]?'Tested':'Not Tested',{pc:'Critical',ph:'High',pm:'Medium',pl:'Low'}[p]]);
+  });
+  dl(rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n'),'text/csv','bugbounty-report.csv');
+}
+function exportText(){dl(buildReport(),'text/plain','bugbounty-report.txt');}
+function copyReport(){
+  navigator.clipboard.writeText(buildReport()).then(()=>{
+    const e=$('exp-confirm');e.style.display='block';setTimeout(()=>e.style.display='none',2500);
+  });
+}
+function dl(content,mime,filename){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download=filename;a.click();
+}
+
+// ════════════════════════════════════════════
+// RESET
+// ════════════════════════════════════════════
+function confirmReset() {
+  if(!confirm('Reset ALL vulnerability progress?\n\nThis cannot be undone.\n(Target Info and Workflow are kept.)')) return;
+  Object.keys(checked).forEach(k=>checked[k]=false);
+  actLog=[]; save(); updateAll(); renderActivity();
+  ['quick','p1','p2','advanced'].forEach(s=>{
+    const e=$('full-'+s);if(e&&e.innerHTML)renderVcard('full-'+s,s);
+  });
+  renderVcard('dash-quick-card','quick',180);
+  renderVcard('dash-p1-card','p1',180);
+}
+
+// ════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════
+buildKeys();
+load();
+updateAll();
+renderActivity();
+renderWfPanel();
+renderVcard('dash-quick-card','quick',180);
+renderVcard('dash-p1-card','p1',180);
+syncTarget();
+</script>
+</body>
+</html>
