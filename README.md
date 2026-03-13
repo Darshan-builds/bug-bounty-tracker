@@ -122,7 +122,7 @@ No installation. No build step. No dependencies.
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/bug-bounty-tracker.git
+git clone https://github.com/Darshan-builds/bug-bounty-tracker.git
 
 # Open in browser
 open bug-bounty-tracker.html
